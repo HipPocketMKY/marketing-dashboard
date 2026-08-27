@@ -150,6 +150,14 @@ function loadData(){
     'https://cors-anywhere.herokuapp.com/' + csvUrl
   ];
   var proxyIndex = 0;
+  // Hard timeout - if nothing loads in 8 seconds, use cached data
+  var hardTimeout = setTimeout(function(){
+    setLoading('Using cached data…');
+    useFallbackData();
+    renderAll();
+    hideLoading(true);
+  }, 8000);
+
   function tryFetch(){
     if(proxyIndex >= proxies.length){
       setLoading('Using cached data…');
@@ -164,6 +172,7 @@ function loadData(){
       })
       .then(function(csv){
         if(!csv || csv.length < 100) throw new Error('Empty response');
+        clearTimeout(hardTimeout);
         setLoading('Parsing data…');
         parseCSV(csv);
         setLoading('Building dashboard…');
