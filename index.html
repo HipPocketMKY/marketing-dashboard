@@ -103,7 +103,8 @@ var TABS = [
   {id:'ma',label:'📣 Meta Ads'},
   {id:'ig',label:'📸 Instagram'},
   {id:'ww',label:'📅 Week vs Week'},
-  {id:'ai',label:'🤖 AI Analyst'}
+  {id:'ai',label:'🤖 AI Analyst'},
+  {id:'em',label:'✉️ Email Report'}
 ];
 
 var navEl = document.getElementById('nav');
@@ -234,28 +235,25 @@ function parseCSV(csv){
     var dp = rawDate.replace(/\//g,'/');
     var parts = dp.split('/');
     if(parts.length<3) return;
-    var d = parts[0]+'/'+parts[1]; // short key e.g. "8/4"
+    var mm = parseInt(parts[0]), dd = parseInt(parts[1]);
+    var d = dd+'/'+mm; // display as D/M e.g. "4/8"
+    var sortKey = mm*100+dd; // for correct chronological sorting
 
     if(platform==='Google Ads'){
       // Exclude stuck value
       if(Math.abs(spend-STUCK_SPEND)<0.01) return;
-      if(!gdMap[d]||spend>0) gdMap[d]={d:d,sp:spend,cl:clicks,im:imps};
+      if(!gdMap[d]||spend>0) gdMap[d]={d:d,sk:sortKey,sp:spend,cl:clicks,im:imps};
     } else if(platform==='Meta Ads'||platform==='Meta Ads Airlie'){
-      if(spend>0||imps>0) maMap[d]={d:d,sp:spend,cl:clicks,im:imps,re:reach};
+      if(spend>0||imps>0) maMap[d]={d:d,sk:sortKey,sp:spend,cl:clicks,im:imps,re:reach};
     } else if(platform==='Meta Ads Mackay'){
-      if(spend>0||imps>0) mmMap[d]={d:d,sp:spend,cl:clicks,im:imps,re:reach};
+      if(spend>0||imps>0) mmMap[d]={d:d,sk:sortKey,sp:spend,cl:clicks,im:imps,re:reach};
     } else if(platform==='Instagram'){
-      if(reach>0) igMap[d]={d:d,re:reach};
+      if(reach>0) igMap[d]={d:d,sk:sortKey,re:reach};
     }
   });
 
   function sortObj(obj){
-    return Object.keys(obj).sort(function(a,b){
-      var ap=a.split('/'),bp=b.split('/');
-      var am=parseInt(ap[0]),ad=parseInt(ap[1]);
-      var bm=parseInt(bp[0]),bd=parseInt(bp[1]);
-      return am!==bm?am-bm:ad-bd;
-    }).map(function(k){return obj[k];});
+    return Object.keys(obj).map(function(k){return obj[k];}).sort(function(a,b){return a.sk-b.sk;});
   }
 
   GD = sortObj(gdMap);
@@ -267,10 +265,10 @@ function parseCSV(csv){
 
 function useFallbackData(){
   // Minimal fallback so dashboard isn't blank
-  GD=[{d:'8/18',sp:27.20,cl:5,im:511},{d:'8/19',sp:26.69,cl:13,im:283},{d:'8/20',sp:25.97,cl:15,im:1111},{d:'8/21',sp:25.99,cl:18,im:836},{d:'8/22',sp:15.03,cl:18,im:963},{d:'8/23',sp:14.37,cl:26,im:2089},{d:'8/24',sp:6.81,cl:10,im:1368},{d:'8/25',sp:22.03,cl:10,im:484}];
-  MA=[{d:'8/4',sp:5.24,cl:10,im:475,re:361},{d:'8/5',sp:8.29,cl:11,im:451,re:354},{d:'8/6',sp:10.20,cl:23,im:584,re:454},{d:'8/7',sp:9.04,cl:16,im:506,re:392},{d:'8/8',sp:10.62,cl:19,im:498,re:374},{d:'8/9',sp:13.45,cl:21,im:1037,re:766},{d:'8/10',sp:12.24,cl:19,im:691,re:503},{d:'8/11',sp:10.19,cl:18,im:718,re:600},{d:'8/12',sp:13.01,cl:46,im:1343,re:1112},{d:'8/13',sp:9.17,cl:51,im:1599,re:1277},{d:'8/14',sp:7.31,cl:39,im:1017,re:813},{d:'8/15',sp:10.39,cl:45,im:1557,re:1216},{d:'8/16',sp:7.06,cl:24,im:1139,re:878},{d:'8/17',sp:8.01,cl:45,im:1282,re:1016},{d:'8/18',sp:8.91,cl:43,im:1374,re:1083},{d:'8/19',sp:8.05,cl:27,im:1335,re:1091},{d:'8/20',sp:8.43,cl:36,im:1502,re:1243},{d:'8/21',sp:11.61,cl:54,im:1754,re:1382},{d:'8/22',sp:9.34,cl:27,im:1464,re:1141},{d:'8/23',sp:8.21,cl:24,im:1382,re:1121},{d:'8/24',sp:11.96,cl:73,im:2209,re:1753},{d:'8/25',sp:10.57,cl:80,im:1629,re:1148}];
-  MM=[{d:'8/12',sp:14.11,cl:54,im:2044,re:1765},{d:'8/13',sp:16.46,cl:153,im:2854,re:2411},{d:'8/14',sp:11.41,cl:75,im:2057,re:1835},{d:'8/15',sp:12.29,cl:112,im:1814,re:1677},{d:'8/16',sp:12.68,cl:103,im:2072,re:1913},{d:'8/17',sp:14.52,cl:91,im:2390,re:2151},{d:'8/18',sp:13.72,cl:95,im:2119,re:1921},{d:'8/19',sp:13.99,cl:90,im:2201,re:1994},{d:'8/20',sp:13.42,cl:95,im:2094,re:1969},{d:'8/21',sp:14.67,cl:112,im:2182,re:2026},{d:'8/22',sp:11.62,cl:81,im:1784,re:1670},{d:'8/23',sp:15.51,cl:118,im:2594,re:2532},{d:'8/24',sp:14.86,cl:115,im:2703,re:2585},{d:'8/25',sp:13.58,cl:103,im:2387,re:2252}];
-  IG_ALL=[{d:'8/4',re:275},{d:'8/5',re:387},{d:'8/6',re:225},{d:'8/7',re:235},{d:'8/8',re:196},{d:'8/9',re:239},{d:'8/10',re:640},{d:'8/11',re:660},{d:'8/12',re:849},{d:'8/13',re:392},{d:'8/14',re:380},{d:'8/15',re:294},{d:'8/16',re:238},{d:'8/17',re:337},{d:'8/18',re:372},{d:'8/19',re:456},{d:'8/20',re:254},{d:'8/21',re:1512},{d:'8/22',re:1382},{d:'8/23',re:511},{d:'8/24',re:863},{d:'8/25',re:1161}];
+  GD=[{d:'18/8',sp:27.20,cl:5,im:511},{d:'19/8',sp:26.69,cl:13,im:283},{d:'20/8',sp:25.97,cl:15,im:1111},{d:'21/8',sp:25.99,cl:18,im:836},{d:'22/8',sp:15.03,cl:18,im:963},{d:'23/8',sp:14.37,cl:26,im:2089},{d:'24/8',sp:6.81,cl:10,im:1368},{d:'25/8',sp:22.03,cl:10,im:484}];
+  MA=[{d:'4/8',sp:5.24,cl:10,im:475,re:361},{d:'5/8',sp:8.29,cl:11,im:451,re:354},{d:'6/8',sp:10.20,cl:23,im:584,re:454},{d:'7/8',sp:9.04,cl:16,im:506,re:392},{d:'8/8',sp:10.62,cl:19,im:498,re:374},{d:'9/8',sp:13.45,cl:21,im:1037,re:766},{d:'10/8',sp:12.24,cl:19,im:691,re:503},{d:'11/8',sp:10.19,cl:18,im:718,re:600},{d:'12/8',sp:13.01,cl:46,im:1343,re:1112},{d:'13/8',sp:9.17,cl:51,im:1599,re:1277},{d:'14/8',sp:7.31,cl:39,im:1017,re:813},{d:'15/8',sp:10.39,cl:45,im:1557,re:1216},{d:'16/8',sp:7.06,cl:24,im:1139,re:878},{d:'17/8',sp:8.01,cl:45,im:1282,re:1016},{d:'18/8',sp:8.91,cl:43,im:1374,re:1083},{d:'19/8',sp:8.05,cl:27,im:1335,re:1091},{d:'20/8',sp:8.43,cl:36,im:1502,re:1243},{d:'21/8',sp:11.61,cl:54,im:1754,re:1382},{d:'22/8',sp:9.34,cl:27,im:1464,re:1141},{d:'23/8',sp:8.21,cl:24,im:1382,re:1121},{d:'24/8',sp:11.96,cl:73,im:2209,re:1753},{d:'25/8',sp:10.57,cl:80,im:1629,re:1148}];
+  MM=[{d:'12/8',sp:14.11,cl:54,im:2044,re:1765},{d:'13/8',sp:16.46,cl:153,im:2854,re:2411},{d:'14/8',sp:11.41,cl:75,im:2057,re:1835},{d:'15/8',sp:12.29,cl:112,im:1814,re:1677},{d:'16/8',sp:12.68,cl:103,im:2072,re:1913},{d:'17/8',sp:14.52,cl:91,im:2390,re:2151},{d:'18/8',sp:13.72,cl:95,im:2119,re:1921},{d:'19/8',sp:13.99,cl:90,im:2201,re:1994},{d:'20/8',sp:13.42,cl:95,im:2094,re:1969},{d:'21/8',sp:14.67,cl:112,im:2182,re:2026},{d:'22/8',sp:11.62,cl:81,im:1784,re:1670},{d:'23/8',sp:15.51,cl:118,im:2594,re:2532},{d:'24/8',sp:14.86,cl:115,im:2703,re:2585},{d:'25/8',sp:13.58,cl:103,im:2387,re:2252}];
+  IG_ALL=[{d:'4/8',re:275},{d:'5/8',re:387},{d:'6/8',re:225},{d:'7/8',re:235},{d:'8/8',re:196},{d:'9/8',re:239},{d:'10/8',re:640},{d:'11/8',re:660},{d:'12/8',re:849},{d:'13/8',re:392},{d:'14/8',re:380},{d:'15/8',re:294},{d:'16/8',re:238},{d:'17/8',re:337},{d:'18/8',re:372},{d:'19/8',re:456},{d:'20/8',re:254},{d:'21/8',re:1512},{d:'22/8',re:1382},{d:'23/8',re:511},{d:'24/8',re:863},{d:'25/8',re:1161}];
 }
 
 // ── HELPERS ──────────────────────────────────────────────
@@ -316,7 +314,9 @@ function getLastNDays(n){
   );
   var unique=[...new Set(allDates)].sort(function(a,b){
     var ap=a.split('/'),bp=b.split('/');
-    return parseInt(ap[0])!==parseInt(bp[0])?parseInt(ap[0])-parseInt(bp[0]):parseInt(ap[1])-parseInt(bp[1]);
+    var ak=parseInt(ap[1])*100+parseInt(ap[0]);
+    var bk=parseInt(bp[1])*100+parseInt(bp[0]);
+    return ak-bk;
   });
   var tw=unique.slice(-7);
   var lw=unique.slice(-14,-7);
@@ -325,7 +325,7 @@ function getLastNDays(n){
 
 // ── RENDER ALL ───────────────────────────────────────────
 function renderAll(){
-  renderOV();renderGA();renderMA();renderIG();renderWW();renderAI();
+  renderOV();renderGA();renderMA();renderIG();renderWW();renderAI();renderEM();
 }
 
 // ── OVERVIEW ─────────────────────────────────────────────
@@ -350,6 +350,9 @@ function renderOV(){
     kp('Meta Combined',mo(cSp),'Airlie + Mackay')+
     kp('Google Ads',mo(gSp),'Search campaign')+
     kp('New Daily Budgets','$48/day','Mackay $20 · Airlie $8 · Google $20')+'</div>'+
+    '<div class="slbl">🎯 Google Ads</div><div class="g5" style="margin-bottom:20px;">'+
+    kp('Spend',mo(gSp),GD.length+' days')+kp('Clicks',gCl,'Total')+kp('Impressions',fm(gIm),'Total')+
+    kp('CTR',pc(gIm>0?gCl/gIm*100:0),'')+kp('CPC',mo(gCl>0?gSp/gCl:0),'Cost/click')+'</div>'+
     '<div class="slbl">📣 Meta Ads — Combined</div><div class="g5" style="margin-bottom:20px;">'+
     kp('Combined Spend',mo(cSp),'Both accounts')+
     kp('Combined Reach',fm(cRe),'Both accounts')+
@@ -363,9 +366,6 @@ function renderOV(){
     '<div class="card" style="border-top:3px solid var(--or)"><div class="ct">Meta Mackay</div><div class="g3">'+
     kp('Spend',mo(mSp),MM.length+' days')+kp('Reach',fm(mRe),'Unique')+kp('Impressions',fm(mIm),'Total')+
     kp('Clicks',mCl,'Link clicks')+kp('CTR',pc(mCtr),'',mCtr>3?'up':'')+kp('CPC',mo(mCpc),'Cost/click')+'</div></div></div>'+
-    '<div class="slbl">🎯 Google Ads</div><div class="g5" style="margin-bottom:20px;">'+
-    kp('Spend',mo(gSp),GD.length+' days')+kp('Clicks',gCl,'Total')+kp('Impressions',fm(gIm),'Total')+
-    kp('CTR',pc(gIm>0?gCl/gIm*100:0),'')+kp('CPC',mo(gCl>0?gSp/gCl:0),'Cost/click')+'</div>'+
     '<div class="slbl">📸 Instagram</div><div class="g4" style="margin-bottom:20px;">'+
     kp('Total Reach',fm(igAll),IG_ALL.length+' days')+
     kp('Avg Daily',Math.round(igAll/(IG_ALL.length||1)),'Per day')+
@@ -375,7 +375,7 @@ function renderOV(){
     '<div class="card"><div class="ct">Meta Daily Spend — Airlie vs Mackay</div><div class="cw"><canvas id="cvOVm"></canvas></div></div>'+
     '<div class="card"><div class="ct">Instagram Daily Reach</div><div class="cw"><canvas id="cvOVi"></canvas></div></div></div>';
 
-  var allDates=[...new Set([...MA.map(function(r){return r.d;}), ...MM.map(function(r){return r.d;})])].sort(function(a,b){var ap=a.split('/'),bp=b.split('/');return parseInt(ap[0])!==parseInt(bp[0])?parseInt(ap[0])-parseInt(bp[0]):parseInt(ap[1])-parseInt(bp[1]);});
+  var allDates=[...new Set([...MA.map(function(r){return r.d;}), ...MM.map(function(r){return r.d;})])].sort(function(a,b){var ap=a.split('/'),bp=b.split('/');var ak=parseInt(ap[1])*100+parseInt(ap[0]);var bk=parseInt(bp[1])*100+parseInt(bp[0]);return ak-bk;});
   var maByD={};MA.forEach(function(r){maByD[r.d]=r.sp;});
   var mmByD={};MM.forEach(function(r){mmByD[r.d]=r.sp;});
   mc('cvOVm','bar',{labels:allDates,datasets:[
@@ -603,6 +603,69 @@ async function doAI(){
   }catch(e){
     document.getElementById('ai-load').style.display='none';
     document.getElementById('ai-out').innerHTML='<div style="color:var(--mu);font-size:13px;padding:12px;">AI unavailable. Please try again.</div>';
+  }
+}
+
+// ── EMAIL REPORT ─────────────────────────────────────────
+function renderEM(){
+  var s=gs('em');
+  s.innerHTML=
+    '<div class="stitle">✉️ Email Report</div><div class="ssub">Generate a structured marketing update to send to your manager</div>'+
+    '<div class="card">'+
+    '<div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">'+
+    '<button class="btn" onclick="doEmail()">✨ Generate Report</button>'+
+    '<button class="btn-sm" onclick="copyEmail()" id="copyBtn" style="display:none;">📋 Copy to Clipboard</button>'+
+    '</div>'+
+    '<div id="em-load" style="display:none;padding:16px;color:var(--mu);font-size:13px;"><div class="aidot"></div><div class="aidot"></div><div class="aidot"></div><span style="margin-left:8px;">Writing your report…</span></div>'+
+    '<div id="em-out" style="color:var(--mu);font-size:13px;">Click "Generate Report" to create a marketing summary email from your current data.</div>'+
+    '</div>';
+}
+
+function copyEmail(){
+  var text=document.getElementById('em-text')?document.getElementById('em-text').innerText:'';
+  navigator.clipboard.writeText(text).then(function(){
+    var b=document.getElementById('copyBtn');
+    b.textContent='✅ Copied!';
+    setTimeout(function(){b.textContent='📋 Copy to Clipboard';},2000);
+  });
+}
+
+async function doEmail(){
+  document.getElementById('em-load').style.display='block';
+  document.getElementById('em-out').innerHTML='';
+  document.getElementById('copyBtn').style.display='none';
+
+  var aSp=sf(MA,'sp'),aCl=sf(MA,'cl'),aIm=sf(MA,'im'),aRe=sf(MA,'re');
+  var aCtr=aIm>0?aCl/aIm*100:0,aCpc=aCl>0?aSp/aCl:0;
+  var mSp=sf(MM,'sp'),mCl=sf(MM,'cl'),mIm=sf(MM,'im'),mRe=sf(MM,'re');
+  var mCtr=mIm>0?mCl/mIm*100:0,mCpc=mCl>0?mSp/mCl:0;
+  var gSp=sf(GD,'sp'),gCl=sf(GD,'cl'),gIm=sf(GD,'im');
+  var gCtr=gIm>0?gCl/gIm*100:0,gCpc=gCl>0?gSp/gCl:0;
+  var igAll=sf(IG_ALL,'re');
+  var totalSpend=aSp+mSp+gSp;
+  var period=getPeriodLabel();
+
+  // Week comparison
+  var weeks=getLastNDays(14);
+  var LW=weeks.lw,TW=weeks.tw;
+  var maTW=MA.filter(function(r){return TW.indexOf(r.d)>-1;});
+  var maLW=MA.filter(function(r){return LW.indexOf(r.d)>-1;});
+  var igTW=IG_ALL.filter(function(r){return TW.indexOf(r.d)>-1;});
+  var igLW=IG_ALL.filter(function(r){return LW.indexOf(r.d)>-1;});
+  var igTWtot=sf(igTW,'re'),igLWtot=sf(igLW,'re');
+
+  var prompt='You are Jordy, who manages marketing at Hip Pocket Workwear & Safety (stores in Mackay and Airlie Beach, QLD — workwear, safety gear, footwear, custom sublimation printing). Write a clean, well-structured internal update email to Dan (the manager). Australian English, professional but straightforward. Use the actual numbers provided.\n\nDATA ('+period+'):\n\nTOTAL AD SPEND: $'+totalSpend.toFixed(2)+' (Meta $'+(aSp+mSp).toFixed(2)+' + Google $'+gSp.toFixed(2)+')\n\nMETA AIRLIE ('+MA.length+' days): Spend $'+aSp.toFixed(2)+', Reach '+aRe+', Clicks '+aCl+', CTR '+aCtr.toFixed(2)+'%, CPC $'+aCpc.toFixed(2)+'\n\nMETA MACKAY ('+MM.length+' days): Spend $'+mSp.toFixed(2)+', Reach '+mRe+', Clicks '+mCl+', CTR '+mCtr.toFixed(2)+'%, CPC $'+mCpc.toFixed(2)+'\n\nGOOGLE ADS ('+GD.length+' days): Spend $'+gSp.toFixed(2)+', Clicks '+gCl+', CTR '+gCtr.toFixed(2)+'%, CPC $'+gCpc.toFixed(2)+'\n\nINSTAGRAM: Total reach '+igAll+' over '+IG_ALL.length+' days. This week '+igTWtot+' vs last week '+igLWtot+'.\n\nCONTEXT: Mackay Meta is outperforming Airlie (higher CTR, lower CPC ~$0.14 vs ~$0.28), so budget was recently shifted to Mackay $20/day, Airlie $8/day, Google $20/day.\n\nFORMAT THE EMAIL EXACTLY LIKE THIS STRUCTURE (use these section headers with the dashes and clear spacing):\n\nSubject: Marketing Update — '+period+'\n\nHi Dan,\n\n[One or two line opening on overall status]\n\n─────────────────────────\nSPEND SUMMARY\n─────────────────────────\n[Total spend and breakdown by platform as a clean list with dashes]\n\n─────────────────────────\nPLATFORM PERFORMANCE\n─────────────────────────\nMeta — Mackay: [key stats and comment]\nMeta — Airlie Beach: [key stats and comment]\nGoogle Ads: [key stats and comment]\nInstagram (organic): [reach and week-on-week]\n\n─────────────────────────\nKEY WINS\n─────────────────────────\n[2-3 bullet points with dashes]\n\n─────────────────────────\nWHAT NEEDS ATTENTION\n─────────────────────────\n[1-2 bullet points with dashes]\n\n─────────────────────────\nNEXT STEPS\n─────────────────────────\n[1-2 clear recommendations with dashes]\n\nHappy to chat through any of this.\n\nCheers,\nJordy\n\nKeep each section tight. Use plain dashes (-) for list items, not asterisks or bullets. Do not use markdown bold. Do not invent data not provided.';
+
+  try{
+    var res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,messages:[{role:'user',content:prompt}]})});
+    var data=await res.json();
+    var text=data.content?data.content.map(function(c){return c.text||'';}).join(''):'No response.';
+    document.getElementById('em-load').style.display='none';
+    document.getElementById('em-out').innerHTML='<div style="font-size:11px;color:var(--gr);margin-bottom:12px;">✅ Generated '+new Date().toLocaleString('en-AU')+'</div><div id="em-text" class="air" style="white-space:pre-wrap;">'+text+'</div>';
+    document.getElementById('copyBtn').style.display='inline-block';
+  }catch(e){
+    document.getElementById('em-load').style.display='none';
+    document.getElementById('em-out').innerHTML='<div style="color:var(--mu);font-size:13px;">Report generation unavailable. Please try again.</div>';
   }
 }
 
