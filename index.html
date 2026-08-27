@@ -609,7 +609,43 @@ async function doAI(){
 // ── INIT ─────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', function(){
   loadData();
+  scheduleDailyRefresh();
 });
+
+// Auto-refresh every day at 6:30 AM (after Make.com 6:00 AM run)
+function scheduleDailyRefresh(){
+  function msUntilNext630(){
+    var now = new Date();
+    var next = new Date();
+    next.setHours(6,30,0,0);
+    if(now >= next){ next.setDate(next.getDate()+1); }
+    return next - now;
+  }
+  function scheduleNext(){
+    var wait = msUntilNext630();
+    setTimeout(function(){
+      // Silent refresh without full-screen loader
+      silentRefresh();
+      scheduleNext(); // reschedule for the following day
+    }, wait);
+  }
+  scheduleNext();
+}
+
+// Refresh data in the background without showing the loading screen
+function silentRefresh(){
+  var publishedCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3_hJyEajEuSmp2XOSw9WYEXrcXNJ4KahLqYMF4sbdDLo-SvHiY-9d73dnVw4lkEk4sJKx4b_2VzqX/pub?output=csv';
+  fetch(publishedCsvUrl + '&_t=' + Date.now())
+    .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
+    .then(function(csv){
+      if(!csv || csv.length < 100) throw new Error('Empty');
+      parseCSV(csv);
+      renderAll();
+      var d = new Date();
+      document.getElementById('dateLabel').innerHTML = '<span class="status-dot"></span>Auto-updated ' + d.toLocaleTimeString('en-AU',{hour:'2-digit',minute:'2-digit'});
+    })
+    .catch(function(err){ console.warn('Auto-refresh failed:',err); });
+}
 </script>
 </body>
 </html>
