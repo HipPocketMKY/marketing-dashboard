@@ -287,7 +287,7 @@ function mc(id,type,data,y1){
   var ctx=document.getElementById(id);if(!ctx)return;
   if(CH[id])CH[id].destroy();
   var sc={};
-  if(type!=='doughnut'&&type!=='pie'){sc={x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#888',font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#888',font:{size:9}}}};if(y1)sc.y1=Y1;
+  if(type!=='doughnut'&&type!=='pie'){sc={x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#888',font:{size:9}}},y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#888',font:{size:9}}}};if(y1)sc.y1=Y1;}
   CH[id]=new Chart(ctx,{type:type,data:data,options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#888',font:{size:10}}}},scales:sc}});
 }
 function gs(id){return document.getElementById('sec-'+id);}
