@@ -95,6 +95,7 @@ var SHEET_ID = '1hondCS06oCfSoR4Ht51rKD568pACQxZXOD3JnvcaAyQ';
 var SHEET_URL = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=0';
 var STUCK_SPEND = 10.157355; // known stuck Google value to exclude
 var BUDGETS = {google:20, metaMk:20, metaAB:8};
+var MONTHLY_BUDGET = 1000; // monthly ad spend cap ($)
 
 // ── TABS ─────────────────────────────────────────────────
 var TABS = [
@@ -237,17 +238,18 @@ function parseCSV(csv){
     var mm = parseInt(parts[0]), dd = parseInt(parts[1]);
     var d = dd+'/'+mm; // display as D/M e.g. "4/8"
     var sortKey = mm*100+dd; // for correct chronological sorting
+    var mo_num = mm; // month number for monthly filtering
 
     if(platform==='Google Ads'){
       // Exclude stuck value
       if(Math.abs(spend-STUCK_SPEND)<0.01) return;
-      if(!gdMap[d]||spend>0) gdMap[d]={d:d,sk:sortKey,sp:spend,cl:clicks,im:imps};
+      if(!gdMap[d]||spend>0) gdMap[d]={d:d,sk:sortKey,mo:mo_num,sp:spend,cl:clicks,im:imps};
     } else if(platform==='Meta Ads'||platform==='Meta Ads Airlie'){
-      if(spend>0||imps>0) maMap[d]={d:d,sk:sortKey,sp:spend,cl:clicks,im:imps,re:reach};
+      if(spend>0||imps>0) maMap[d]={d:d,sk:sortKey,mo:mo_num,sp:spend,cl:clicks,im:imps,re:reach};
     } else if(platform==='Meta Ads Mackay'){
-      if(spend>0||imps>0) mmMap[d]={d:d,sk:sortKey,sp:spend,cl:clicks,im:imps,re:reach};
+      if(spend>0||imps>0) mmMap[d]={d:d,sk:sortKey,mo:mo_num,sp:spend,cl:clicks,im:imps,re:reach};
     } else if(platform==='Instagram'){
-      if(reach>0) igMap[d]={d:d,sk:sortKey,re:reach};
+      if(reach>0) igMap[d]={d:d,sk:sortKey,mo:mo_num,re:reach};
     }
   });
 
@@ -342,10 +344,36 @@ function renderOV(){
   var days=Math.max(MA.length,1);
   var period=getPeriodLabel();
 
+  // ── CURRENT MONTH SPEND (for budget tracking) ──
+  var thisMonth = new Date().getMonth()+1; // 1-12
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  function monthSpend(arr){return arr.filter(function(r){return r.mo===thisMonth;}).reduce(function(t,r){return t+(r.sp||0);},0);}
+  var moMeta = monthSpend(MA) + monthSpend(MM);
+  var moGoogle = monthSpend(GD);
+  var moTotal = moMeta + moGoogle;
+  var budgetPct = Math.min(moTotal/MONTHLY_BUDGET*100, 100);
+  var budgetColor = budgetPct>=100?'var(--re)':budgetPct>=80?'var(--yl)':'var(--gr)';
+  var remaining = MONTHLY_BUDGET - moTotal;
+
   s.innerHTML=
     '<div class="stitle">Campaign Overview</div><div class="ssub">'+period+' — Last refreshed: '+lastUpdated+'</div>'+
-    '<div class="slbl">💰 Total Spend — All Platforms</div><div class="g4" style="margin-bottom:20px;">'+
-    kp('Total All Platforms',mo(totalSpend),'Meta + Google','up')+
+    '<div class="slbl">💰 '+monthNames[thisMonth-1]+' Budget — $'+MONTHLY_BUDGET+' limit</div>'+
+    '<div class="card" style="margin-bottom:20px;">'+
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">'+
+    '<div><span style="font-size:26px;font-weight:700;color:'+budgetColor+';">'+mo(moTotal)+'</span>'+
+    '<span style="font-size:13px;color:var(--mu);"> of $'+MONTHLY_BUDGET+' spent this month</span></div>'+
+    '<div style="font-size:13px;color:'+(remaining<0?'var(--re)':'var(--mu)')+';font-weight:600;">'+
+    (remaining>=0?mo(remaining)+' remaining':mo(-remaining)+' over budget')+'</div></div>'+
+    '<div style="width:100%;height:14px;background:var(--c2);border-radius:7px;overflow:hidden;">'+
+    '<div style="height:100%;width:'+budgetPct+'%;background:'+budgetColor+';border-radius:7px;transition:width .5s;"></div></div>'+
+    '<div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--mu);">'+
+    '<span>'+budgetPct.toFixed(0)+'% used</span>'+
+    '<span>Meta '+mo(moMeta)+' · Google '+mo(moGoogle)+'</span></div>'+
+    (budgetPct>=100?'<div class="ibox" style="border-color:var(--re);margin-top:12px;">⚠️ Over the $'+MONTHLY_BUDGET+' monthly limit. Consider pausing or reducing daily budgets.</div>':
+     budgetPct>=80?'<div class="ibox" style="border-color:var(--yl);margin-top:12px;">⚠️ '+budgetPct.toFixed(0)+'% of monthly budget used — approaching the $'+MONTHLY_BUDGET+' limit.</div>':'')+
+    '</div>'+
+    '<div class="slbl">💰 Total Spend — All Time</div><div class="g4" style="margin-bottom:20px;">'+
+    kp('Total All Platforms',mo(totalSpend),'Meta + Google (all data)')+
     kp('Meta Combined',mo(cSp),'Airlie + Mackay')+
     kp('Google Ads',mo(gSp),'Search campaign')+
     kp('New Daily Budgets','$48/day','Mackay $20 · Airlie $8 · Google $20')+'</div>'+
