@@ -662,26 +662,34 @@ async function doEmail(){
   document.getElementById('em-out').innerHTML='';
   document.getElementById('copyBtn').style.display='none';
 
-  var aSp=sf(MA,'sp'),aCl=sf(MA,'cl'),aIm=sf(MA,'im'),aRe=sf(MA,'re');
-  var aCtr=aIm>0?aCl/aIm*100:0,aCpc=aCl>0?aSp/aCl:0;
-  var mSp=sf(MM,'sp'),mCl=sf(MM,'cl'),mIm=sf(MM,'im'),mRe=sf(MM,'re');
-  var mCtr=mIm>0?mCl/mIm*100:0,mCpc=mCl>0?mSp/mCl:0;
-  var gSp=sf(GD,'sp'),gCl=sf(GD,'cl'),gIm=sf(GD,'im');
-  var gCtr=gIm>0?gCl/gIm*100:0,gCpc=gCl>0?gSp/gCl:0;
-  var igAll=sf(IG_ALL,'re');
-  var totalSpend=aSp+mSp+gSp;
-  var period=getPeriodLabel();
+  // Filter all data to the CURRENT MONTH only
+  var thisMo = new Date().getMonth()+1;
+  var moNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var moName = moNames[thisMo-1];
+  var MAm = MA.filter(function(r){return r.mo===thisMo;});
+  var MMm = MM.filter(function(r){return r.mo===thisMo;});
+  var GDm = GD.filter(function(r){return r.mo===thisMo;});
+  var IGm = IG_ALL.filter(function(r){return r.mo===thisMo;});
 
-  // Week comparison
+  var aSp=sf(MAm,'sp'),aCl=sf(MAm,'cl'),aIm=sf(MAm,'im'),aRe=sf(MAm,'re');
+  var aCtr=aIm>0?aCl/aIm*100:0,aCpc=aCl>0?aSp/aCl:0;
+  var mSp=sf(MMm,'sp'),mCl=sf(MMm,'cl'),mIm=sf(MMm,'im'),mRe=sf(MMm,'re');
+  var mCtr=mIm>0?mCl/mIm*100:0,mCpc=mCl>0?mSp/mCl:0;
+  var gSp=sf(GDm,'sp'),gCl=sf(GDm,'cl'),gIm=sf(GDm,'im');
+  var gCtr=gIm>0?gCl/gIm*100:0,gCpc=gCl>0?gSp/gCl:0;
+  var igAll=sf(IGm,'re');
+  var totalSpend=aSp+mSp+gSp;
+  var budgetLine = 'Monthly budget is $'+MONTHLY_BUDGET+'. Spent so far this month: $'+totalSpend.toFixed(2)+' ('+(totalSpend/MONTHLY_BUDGET*100).toFixed(0)+'% of budget, $'+(MONTHLY_BUDGET-totalSpend).toFixed(2)+' remaining).';
+  var period = moName + ' 2026';
+
+  // Week comparison (still uses recent days, which fall in this month)
   var weeks=getLastNDays(14);
   var LW=weeks.lw,TW=weeks.tw;
-  var maTW=MA.filter(function(r){return TW.indexOf(r.d)>-1;});
-  var maLW=MA.filter(function(r){return LW.indexOf(r.d)>-1;});
   var igTW=IG_ALL.filter(function(r){return TW.indexOf(r.d)>-1;});
   var igLW=IG_ALL.filter(function(r){return LW.indexOf(r.d)>-1;});
   var igTWtot=sf(igTW,'re'),igLWtot=sf(igLW,'re');
 
-  var prompt='You are Jordy, who manages marketing at Hip Pocket Workwear & Safety (stores in Mackay and Airlie Beach, QLD — workwear, safety gear, footwear, custom sublimation printing). Write a clean, well-structured internal update email to Dan (the manager). Australian English, professional but straightforward. Use the actual numbers provided.\n\nDATA ('+period+'):\n\nTOTAL AD SPEND: $'+totalSpend.toFixed(2)+' (Meta $'+(aSp+mSp).toFixed(2)+' + Google $'+gSp.toFixed(2)+')\n\nMETA AIRLIE ('+MA.length+' days): Spend $'+aSp.toFixed(2)+', Reach '+aRe+', Clicks '+aCl+', CTR '+aCtr.toFixed(2)+'%, CPC $'+aCpc.toFixed(2)+'\n\nMETA MACKAY ('+MM.length+' days): Spend $'+mSp.toFixed(2)+', Reach '+mRe+', Clicks '+mCl+', CTR '+mCtr.toFixed(2)+'%, CPC $'+mCpc.toFixed(2)+'\n\nGOOGLE ADS ('+GD.length+' days): Spend $'+gSp.toFixed(2)+', Clicks '+gCl+', CTR '+gCtr.toFixed(2)+'%, CPC $'+gCpc.toFixed(2)+'\n\nINSTAGRAM: Total reach '+igAll+' over '+IG_ALL.length+' days. This week '+igTWtot+' vs last week '+igLWtot+'.\n\nCONTEXT: Mackay Meta is outperforming Airlie (higher CTR, lower CPC ~$0.14 vs ~$0.28), so budget was recently shifted to Mackay $20/day, Airlie $8/day, Google $20/day.\n\nFORMAT THE EMAIL EXACTLY LIKE THIS STRUCTURE (use these section headers with the dashes and clear spacing):\n\nSubject: Marketing Update — '+period+'\n\nHi Dan,\n\n[One or two line opening on overall status]\n\n─────────────────────────\nSPEND SUMMARY\n─────────────────────────\n[Total spend and breakdown by platform as a clean list with dashes]\n\n─────────────────────────\nPLATFORM PERFORMANCE\n─────────────────────────\nMeta — Mackay: [spend, reach, clicks, CTR, CPC and a brief comment on how it is performing]\nMeta — Airlie Beach: [spend, reach, clicks, CTR, CPC and a brief comment on how it is performing]\nGoogle Ads: [spend, clicks, CTR, CPC and a brief comment]\nInstagram (organic): [total reach and week-on-week movement]\n\n─────────────────────────\nKEY TAKEAWAYS\n─────────────────────────\n[2-4 bullet points with dashes summarising how things are tracking overall]\n\nHappy to chat through any of this.\n\nCheers,\nJordy\n\nThis is a performance overview only — do NOT include recommendations, next steps, or actions. Just report how things are going. Use plain dashes (-) for list items, not asterisks or bullets. Do not use markdown bold. Do not invent data not provided.';
+  var prompt='You are Jordy, who manages marketing at Hip Pocket Workwear & Safety (stores in Mackay and Airlie Beach, QLD — workwear, safety gear, footwear, custom sublimation printing). Write a clean, well-structured internal update email to Dan (the manager). Australian English, professional but straightforward. Use the actual numbers provided. This report covers '+moName+' 2026 ONLY (the current month).\n\nDATA ('+moName+' 2026 so far):\n\n'+budgetLine+'\n\nTOTAL AD SPEND THIS MONTH: $'+totalSpend.toFixed(2)+' (Meta $'+(aSp+mSp).toFixed(2)+' + Google $'+gSp.toFixed(2)+')\n\nMETA AIRLIE ('+MAm.length+' days this month): Spend $'+aSp.toFixed(2)+', Reach '+aRe+', Clicks '+aCl+', CTR '+aCtr.toFixed(2)+'%, CPC $'+aCpc.toFixed(2)+'\n\nMETA MACKAY ('+MMm.length+' days this month): Spend $'+mSp.toFixed(2)+', Reach '+mRe+', Clicks '+mCl+', CTR '+mCtr.toFixed(2)+'%, CPC $'+mCpc.toFixed(2)+'\n\nGOOGLE ADS ('+GDm.length+' days this month): Spend $'+gSp.toFixed(2)+', Clicks '+gCl+', CTR '+gCtr.toFixed(2)+'%, CPC $'+gCpc.toFixed(2)+'\n\nINSTAGRAM: '+igAll+' total reach this month over '+IGm.length+' days. This week '+igTWtot+' vs last week '+igLWtot+'.\n\nCONTEXT: Mackay Meta is outperforming Airlie (higher CTR, lower CPC), current daily budgets Mackay $20/day, Airlie $8/day, Google $20/day.\n\nFORMAT THE EMAIL EXACTLY LIKE THIS STRUCTURE (use these section headers with the dashes and clear spacing):\n\nSubject: Marketing Update — '+moName+' 2026\n\nHi Dan,\n\n[One or two line opening on overall status for the month]\n\n─────────────────────────\nBUDGET\n─────────────────────────\n[State spend this month vs the $'+MONTHLY_BUDGET+' monthly budget, and how much is left]\n\n─────────────────────────\nSPEND SUMMARY\n─────────────────────────\n[Total spend and breakdown by platform as a clean list with dashes]\n\n─────────────────────────\nPLATFORM PERFORMANCE\n─────────────────────────\nMeta — Mackay: [spend, reach, clicks, CTR, CPC and a brief comment]\nMeta — Airlie Beach: [spend, reach, clicks, CTR, CPC and a brief comment]\nGoogle Ads: [spend, clicks, CTR, CPC and a brief comment]\nInstagram (organic): [total reach and week-on-week movement]\n\n─────────────────────────\nKEY TAKEAWAYS\n─────────────────────────\n[2-4 bullet points with dashes summarising how the month is tracking]\n\nHappy to chat through any of this.\n\nCheers,\nJordy\n\nThis is a performance overview only — do NOT include recommendations, next steps, or actions. Just report how the month is going. Use plain dashes (-) for list items, not asterisks or bullets. Do not use markdown bold. Do not invent data not provided.';
 
   try{
     var res=await fetch('https://claude-proxy.mackay.workers.dev',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1200,messages:[{role:'user',content:prompt}]})});
