@@ -132,6 +132,10 @@ document.getElementById('aiBtn').onclick = function(){showTab('ai');doAI();};
 
 // ── PARSED DATA GLOBALS ───────────────────────────────────
 var GD=[], MA=[], MM=[], IG_ALL=[];
+// Master (unfiltered) copies — filters derive from these
+var GD_ALL_MASTER=[], MA_ALL_MASTER=[], MM_ALL_MASTER=[], IG_ALL_MASTER=[];
+// Active filters
+var FILTER = { range: 'all', platforms: {airlie:true, mackay:true, google:true, instagram:true} };
 var lastUpdated = '';
 
 // ── FETCH & PARSE ─────────────────────────────────────────
@@ -257,11 +261,48 @@ function parseCSV(csv){
     return Object.keys(obj).map(function(k){return obj[k];}).sort(function(a,b){return a.sk-b.sk;});
   }
 
-  GD = sortObj(gdMap);
-  MA = sortObj(maMap);
-  MM = sortObj(mmMap);
-  IG_ALL = sortObj(igMap);
+  GD_ALL_MASTER = sortObj(gdMap);
+  MA_ALL_MASTER = sortObj(maMap);
+  MM_ALL_MASTER = sortObj(mmMap);
+  IG_ALL_MASTER = sortObj(igMap);
   lastUpdated = new Date().toLocaleString('en-AU');
+  applyFilters();
+}
+
+// Apply the active date-range + platform filters to produce the working arrays
+function applyFilters(){
+  // Date range filter
+  var maxSk = 0;
+  [].concat(MA_ALL_MASTER, MM_ALL_MASTER, GD_ALL_MASTER, IG_ALL_MASTER).forEach(function(r){ if(r.sk>maxSk) maxSk=r.sk; });
+  function skToNum(sk){ return sk; } // sortKey already month*100+day, chronological within a year
+  function inRange(r){
+    if(FILTER.range==='all') return true;
+    // Build a comparable "day index" — approximate using sortKey ordering of unique dates
+    return true; // replaced below by rangeAllowed set
+  }
+  // Build ordered unique date list to support "last N days" and "this month"
+  var allRecs = [].concat(MA_ALL_MASTER, MM_ALL_MASTER, GD_ALL_MASTER, IG_ALL_MASTER);
+  var uniqueDates = [...new Set(allRecs.map(function(r){return r.d;}))];
+  uniqueDates.sort(function(a,b){
+    var ap=a.split('/'),bp=b.split('/');
+    var ak=parseInt(ap[1])*100+parseInt(ap[0]);
+    var bk=parseInt(bp[1])*100+parseInt(bp[0]);
+    return ak-bk;
+  });
+  var allowed = null; // null = all allowed
+  if(FILTER.range==='7'){ allowed = new Set(uniqueDates.slice(-7)); }
+  else if(FILTER.range==='30'){ allowed = new Set(uniqueDates.slice(-30)); }
+  else if(FILTER.range==='month'){
+    var thisMo = new Date().getMonth()+1;
+    allowed = new Set(allRecs.filter(function(r){return r.mo===thisMo;}).map(function(r){return r.d;}));
+  }
+  function dateOk(r){ return allowed===null || allowed.has(r.d); }
+
+  // Platform filter + date filter
+  MA = FILTER.platforms.airlie ? MA_ALL_MASTER.filter(dateOk) : [];
+  MM = FILTER.platforms.mackay ? MM_ALL_MASTER.filter(dateOk) : [];
+  GD = FILTER.platforms.google ? GD_ALL_MASTER.filter(dateOk) : [];
+  IG_ALL = FILTER.platforms.instagram ? IG_ALL_MASTER.filter(dateOk) : [];
 }
 
 function useFallbackData(){
@@ -326,7 +367,47 @@ function getLastNDays(n){
 
 // ── RENDER ALL ───────────────────────────────────────────
 function renderAll(){
+  renderFilterBar();
   renderOV();renderGA();renderMA();renderIG();renderWW();renderAI();renderEM();
+}
+
+// ── FILTER BAR ───────────────────────────────────────────
+function renderFilterBar(){
+  var bar = document.getElementById('filterBar');
+  if(!bar){
+    bar = document.createElement('div');
+    bar.id = 'filterBar';
+    bar.style.cssText = 'background:var(--su);border-bottom:1px solid var(--bo);padding:10px 20px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;';
+    var nav = document.getElementById('nav');
+    nav.parentNode.insertBefore(bar, nav.nextSibling);
+  }
+  var ranges = [['all','All time'],['month','This month'],['30','Last 30 days'],['7','Last 7 days']];
+  var rangeBtns = ranges.map(function(r){
+    var active = FILTER.range===r[0];
+    return '<button onclick="setRange(\''+r[0]+'\')" style="background:'+(active?'var(--or)':'var(--c2)')+';color:'+(active?'#fff':'var(--mu)')+';border:1px solid '+(active?'var(--or)':'var(--bo)')+';border-radius:6px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;">'+r[1]+'</button>';
+  }).join('');
+  var plats = [['airlie','Meta Airlie'],['mackay','Meta Mackay'],['google','Google'],['instagram','Instagram']];
+  var platBtns = plats.map(function(p){
+    var on = FILTER.platforms[p[0]];
+    return '<button onclick="togglePlatform(\''+p[0]+'\')" style="background:'+(on?'var(--ca)':'transparent')+';color:'+(on?'var(--tx)':'var(--mu)')+';border:1px solid '+(on?'var(--or)':'var(--bo)')+';border-radius:6px;padding:5px 11px;font-size:11px;font-weight:600;cursor:pointer;opacity:'+(on?'1':'0.5')+';">'+(on?'✓ ':'')+p[1]+'</button>';
+  }).join('');
+  bar.innerHTML =
+    '<div style="display:flex;gap:6px;align-items:center;"><span style="font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:4px;">Dates</span>'+rangeBtns+'</div>'+
+    '<div style="display:flex;gap:6px;align-items:center;"><span style="font-size:10px;color:var(--mu);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-right:4px;">Show</span>'+platBtns+'</div>';
+}
+
+function setRange(r){
+  FILTER.range = r;
+  applyFilters();
+  renderAll();
+}
+function togglePlatform(p){
+  FILTER.platforms[p] = !FILTER.platforms[p];
+  // Prevent turning everything off
+  var anyOn = Object.keys(FILTER.platforms).some(function(k){return FILTER.platforms[k];});
+  if(!anyOn){ FILTER.platforms[p] = true; }
+  applyFilters();
+  renderAll();
 }
 
 // ── OVERVIEW ─────────────────────────────────────────────
@@ -348,8 +429,8 @@ function renderOV(){
   var thisMonth = new Date().getMonth()+1; // 1-12
   var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   function monthSpend(arr){return arr.filter(function(r){return r.mo===thisMonth;}).reduce(function(t,r){return t+(r.sp||0);},0);}
-  var moMeta = monthSpend(MA) + monthSpend(MM);
-  var moGoogle = monthSpend(GD);
+  var moMeta = monthSpend(MA_ALL_MASTER) + monthSpend(MM_ALL_MASTER);
+  var moGoogle = monthSpend(GD_ALL_MASTER);
   var moTotal = moMeta + moGoogle;
   var budgetPct = Math.min(moTotal/MONTHLY_BUDGET*100, 100);
   var budgetColor = budgetPct>=100?'var(--re)':budgetPct>=80?'var(--yl)':'var(--gr)';
@@ -666,10 +747,10 @@ async function doEmail(){
   var thisMo = new Date().getMonth()+1;
   var moNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
   var moName = moNames[thisMo-1];
-  var MAm = MA.filter(function(r){return r.mo===thisMo;});
-  var MMm = MM.filter(function(r){return r.mo===thisMo;});
-  var GDm = GD.filter(function(r){return r.mo===thisMo;});
-  var IGm = IG_ALL.filter(function(r){return r.mo===thisMo;});
+  var MAm = MA_ALL_MASTER.filter(function(r){return r.mo===thisMo;});
+  var MMm = MM_ALL_MASTER.filter(function(r){return r.mo===thisMo;});
+  var GDm = GD_ALL_MASTER.filter(function(r){return r.mo===thisMo;});
+  var IGm = IG_ALL_MASTER.filter(function(r){return r.mo===thisMo;});
 
   var aSp=sf(MAm,'sp'),aCl=sf(MAm,'cl'),aIm=sf(MAm,'im'),aRe=sf(MAm,'re');
   var aCtr=aIm>0?aCl/aIm*100:0,aCpc=aCl>0?aSp/aCl:0;
