@@ -142,31 +142,30 @@ function refreshData(){
 }
 
 function loadData(){
-  setLoading('Fetching from Google Sheets…');
-  // Use CORS proxy to fetch CSV
-  var csvUrl = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=0';
-  var proxies = [
-    'https://corsproxy.io/?' + encodeURIComponent(csvUrl),
-    'https://api.allorigins.win/raw?url=' + encodeURIComponent(csvUrl),
-    'https://cors-anywhere.herokuapp.com/' + csvUrl
+  setLoading('Fetching live data…');
+  var liveExport = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/export?format=csv&gid=0';
+  // Fetch through your own Cloudflare Worker (reliable, no rate limits, always fresh).
+  // Falls back to the published CSV only if the Worker is unreachable.
+  var sources = [
+    'https://claude-proxy.mackay.workers.dev/sheet?_t=' + Date.now(),
+    'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3_hJyEajEuSmp2XOSw9WYEXrcXNJ4KahLqYMF4sbdDLo-SvHiY-9d73dnVw4lkEk4sJKx4b_2VzqX/pub?output=csv&_t=' + Date.now()
   ];
-  var proxyIndex = 0;
-  // Hard timeout - if nothing loads in 8 seconds, use cached data
+  var idx = 0;
   var hardTimeout = setTimeout(function(){
     setLoading('Using cached data…');
     useFallbackData();
     renderAll();
     hideLoading(true);
-  }, 8000);
+  }, 10000);
 
   function tryFetch(){
-    if(proxyIndex >= proxies.length){
+    if(idx >= sources.length){
       setLoading('Using cached data…');
-      setTimeout(function(){useFallbackData();renderAll();hideLoading(true);},500);
+      clearTimeout(hardTimeout);
+      setTimeout(function(){useFallbackData();renderAll();hideLoading(true);},300);
       return;
     }
-    setLoading('Fetching data (attempt '+(proxyIndex+1)+')…');
-    fetch(proxies[proxyIndex])
+    fetch(sources[idx], {cache: 'no-store'})
       .then(function(r){
         if(!r.ok) throw new Error('HTTP '+r.status);
         return r.text();
@@ -180,8 +179,8 @@ function loadData(){
         setTimeout(function(){renderAll();hideLoading();},300);
       })
       .catch(function(err){
-        console.warn('Proxy '+proxyIndex+' failed:',err);
-        proxyIndex++;
+        console.warn('Source '+idx+' failed:',err);
+        idx++;
         tryFetch();
       });
   }
@@ -697,8 +696,8 @@ function scheduleDailyRefresh(){
 
 // Refresh data in the background without showing the loading screen
 function silentRefresh(){
-  var publishedCsvUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vR3_hJyEajEuSmp2XOSw9WYEXrcXNJ4KahLqYMF4sbdDLo-SvHiY-9d73dnVw4lkEk4sJKx4b_2VzqX/pub?output=csv';
-  fetch(publishedCsvUrl + '&_t=' + Date.now())
+  var publishedCsvUrl = 'https://claude-proxy.mackay.workers.dev/sheet';
+  fetch(publishedCsvUrl + '?_t=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ if(!r.ok) throw new Error('HTTP '+r.status); return r.text(); })
     .then(function(csv){
       if(!csv || csv.length < 100) throw new Error('Empty');
